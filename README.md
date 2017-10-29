@@ -1,5 +1,5 @@
 # DummyFileSystem
-DummtFileSystem(DFS) is an on-memort pseudo-filesystem , with every line commented , for educational purposes 
+DummtFileSystem(DFS) is a VERY Simple , single-folder,on-memory filesystem , with every line commented , for fun and educational purposes . 
 
-Warning , 
-is not working yet , is not tested yet , and its under develepoment... :) 
+<hr>
+It supports ... 
