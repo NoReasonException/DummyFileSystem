@@ -9,4 +9,9 @@ It supports ...
   <tr><td>.lookup()</td><td>dfs_iop_lookup()</td><td>dfs_module.c</td><td>PENDING</td><td>0.0.1</td><td>Only Regular files, Under Develepoment</td></tr>
 </table>
 
-<blockquote><h3>Warning:This filesystem is (yet) very unstable and untested.. , you can test it in a Virtualbox or any VM Technology...</h3></blockquote>
+<blockquote><h4>Warning:This filesystem is (yet) very unstable and untested.. , you can test it in a Virtualbox or any VM Technology...</h4></blockquote>
+
+<h3>Lets install it! :) </h3>
+'''bash
+$:cd <PathToFolder>/DummyFileSystem
+
