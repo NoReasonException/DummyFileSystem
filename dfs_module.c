@@ -121,7 +121,7 @@ static int dfs_fill_super(struct super_block *sb,void *data,int silent){
 	root_inode->i_fop=&dfs_mount_dir_iop;
 	root_inode->i_sb=sb;
 	root_inode->i_atime = root_inode->i_mtime = root_inode->i_ctime = CURRENT_TIME;
-	root_inode->i_mode|=(MAY_ACCESS|MAY_READ|MAY_OPEN|MAY_WRITE|MAY_EXEC|DT_DIR);
+	root_inode->i_mode|=(MAY_ACCESS|MAY_READ|MAY_OPEN|MAY_WRITE|MAY_EXEC);
 	sb->s_root=d_make_root(root_inode);
 	mountFolder=root_inode;
 	return 0;
