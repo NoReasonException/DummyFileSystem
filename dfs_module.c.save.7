@@ -17,13 +17,17 @@ static int 		dfs_iop_mkdir(struct inode *,struct dentry *parent,umode_t mode);		
 static int 		dfs_iop_create(struct inode *,struct dentry* ,umode_t flags,bool);			//Creates a regular file
 static ssize_t 		dfs_fop_read(struct file*,char __user *,size_t , loff_t *);				//Read the contents of a file...
 static int 		dfs_iop_permission(struct inode *,int);							//return the permissions of the file (not supported)
-int 			dfs_iop_getattr(struct vfsmount *mnt, struct dentry *, struct kstat *);
+int (*getattr) (const struct path *, struct kstat *, u32, unsigned int);
 /// Mount folder Operations only...
 static int		dfs_mount_dir_iop_iterate(struct file *flip,struct dir_context *ctx);			//iterate the contents of mount folder only (Unstable yet)
 
 
 
+/***
 
+
+
+*/
 static int dfs_iop_permission(struct inode *nod,int checkThat){
 	printk(KERN_INFO"Permission Runnin...");
 	return 0;//nod->i_mode;
@@ -45,6 +49,9 @@ static struct inode_operations dfs_iop={
 	.mkdir=		dfs_iop_mkdir,
 	.create=	dfs_iop_create,
 	.getattr=	dfs_iop_getattr,
+//	.permission=	dfs_iop_permission,
+
+
 };
 /*
 	Mount Folder file_operations struct .because the mount folder is a {FOLDER} we can not open it as regular file(read write etc...)
@@ -175,12 +182,5 @@ static ssize_t dfs_fop_read(struct file*file,char __user *buff,size_t size, loff
 	}
 	*loff+=size;
 	return size;
-
-}
-int  dfs_iop_getattr(struct vfsmount *mnt, struct dentry *curr, struct kstat *stat){
-	stat->ino=10;
-	stat->mode=(MAY_EXEC);
-	stat->size=210;
-	return 0;
 
 }

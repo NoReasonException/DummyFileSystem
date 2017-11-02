@@ -1,0 +1,6 @@
+make
+sudo insmod dfs_module.ko
+cd test
+sudo losetup /dev/loop0 img
+sudo mount -t dfs /dev/loop0 mount
+

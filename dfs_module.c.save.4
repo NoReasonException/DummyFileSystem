@@ -9,42 +9,40 @@
 
 #define DFS_MAXBYTES 1024
 #define DFS_FIRSTINODE_INO 0
-static struct dentry *	dfs_construct(struct file_system_type *,int flags,const char *dev_name,void *data);	//Constructor Function passed in struct file_system_type
-static void 		dfs_destruct(struct super_block *sb);							//Destructor Fuction passed in struct file_system_type
-static int  		dfs_fill_super(struct super_block *sb,void *data,int silent);				//Fills the struct superblock of this filesystem (Passed in mount_bdev)
-static struct dentry *	dfs_iop_lookup(struct inode *,struct dentry *parent,unsigned int flagsMaybe);		//Converts a path name to struct inode
-static int 		dfs_iop_mkdir(struct inode *,struct dentry *parent,umode_t mode);			//Makes a directory (Not supported yet)
-static int 		dfs_iop_create(struct inode *,struct dentry* ,umode_t flags,bool);			//Creates a regular file
-static ssize_t 		dfs_fop_read(struct file*,char __user *,size_t , loff_t *);				//Read the contents of a file...
-static int 		dfs_iop_permission(struct inode *,int);							//return the permissions of the file (not supported)
-int 			dfs_iop_getattr(struct vfsmount *mnt, struct dentry *, struct kstat *);
-/// Mount folder Operations only...
-static int		dfs_mount_dir_iop_iterate(struct file *flip,struct dir_context *ctx);			//iterate the contents of mount folder only (Unstable yet)
+static struct dentry *	dfs_construct(struct file_system_type *,int flags,const char *dev_name,void *data);
+static void 		dfs_destruct(struct super_block *sb);
+static int  		dfs_fill_super(struct super_block *sb,void *data,int silent);
+static struct dentry *	dfs_iop_lookup(struct inode *,struct dentry *parent,unsigned int flagsMaybe);
+static int 		dfs_iop_mkdir(struct inode *,struct dentry *parent,umode_t mode);
+static int 		dfs_iop_create(struct inode *,struct dentry* ,umode_t flags,bool);
+static ssize_t 		dfs_fop_read(struct file*,char __user *,size_t , loff_t *);
+//static int 		dfs_iop_follow_link(struct dentry *dentry,struct namedata *nd);
 
-
-
-
-static int dfs_iop_permission(struct inode *nod,int checkThat){
-	printk(KERN_INFO"Permission Runnin...");
-	return 0;//nod->i_mode;
+static int		dfs_mount_dir_iop_iterate(struct file *flip,struct dir_context *ctx){
+	printk(KERN_INFO"dfs_mount_dir_iop_iterate started for file %s",flip->f_path.dentry->d_name.name);
+	dir_emit(ctx,"Hello
+	return 0;
 
 }
-
 struct kmem_cache *dfs_dat_inode_pool;
-int count=-1;
-struct inode **inodes;			//simple array of inodes to save (in ram..)
-char **		names;			//simple array with filenames to ascociate...
+int dentries=-1;
+struct dentry **dentry;
+struct inode **inodes;
+
 struct inode *mountFolder=NULL;
 
 struct dfs_data{
 	char name[12];
 	char data[500];
 };
+
+
 static struct inode_operations dfs_iop={
 	.lookup=	dfs_iop_lookup,
 	.mkdir=		dfs_iop_mkdir,
 	.create=	dfs_iop_create,
-	.getattr=	dfs_iop_getattr,
+
+
 };
 /*
 	Mount Folder file_operations struct .because the mount folder is a {FOLDER} we can not open it as regular file(read write etc...)
@@ -71,8 +69,8 @@ static struct file_system_type dfs_info={
 int dfs_init(void){
 
 	int ret;
-	inodes	= (struct inode **)kzalloc(sizeof(struct inode *)*12,0);
-	names	= (char **)kzalloc(sizeof(char *)*12,0);
+	dentry	 = (struct dentry **)kzalloc(sizeof(struct dentry*)*12,0);
+	inodes 	 = (struct inode **)kzalloc(sizeof(struct inode *)*12,0);
 //	dfs_dat_inode_pool=kmem_cache_create("dfs_dat_inode_pool",sizeof(struct dfs_dat_inode_struct),0,0,NULL);
 	ret=register_filesystem(&dfs_info);
 	if(unlikely(ret!=0)){
@@ -102,15 +100,6 @@ static struct dentry *dfs_construct(struct file_system_type *dfs_inf,int flags,c
 	}
 	return root;
 }
-static int              dfs_mount_dir_iop_iterate(struct file *flip,struct dir_context *ctx){
-        printk(KERN_INFO"dfs_mount_dir_iop_iterate started for file %s",flip->f_path.dentry->d_name.name);
-	int i;
-	for(i=0;i<count;i++)
-		dir_emit(ctx,names[i],15,i+5,DT_REG);
-        return 0;
-
-}
-
 static int dfs_fill_super(struct super_block *sb,void *data,int silent){
 	struct inode *root_inode;
 	sb->s_maxbytes=DFS_MAXBYTES;
@@ -121,37 +110,35 @@ static int dfs_fill_super(struct super_block *sb,void *data,int silent){
 	root_inode->i_fop=&dfs_mount_dir_iop;
 	root_inode->i_sb=sb;
 	root_inode->i_atime = root_inode->i_mtime = root_inode->i_ctime = CURRENT_TIME;
-	root_inode->i_mode|=(MAY_ACCESS|MAY_READ|MAY_OPEN|MAY_WRITE|MAY_EXEC|DT_DIR);
+	root_inode->i_mode|=(MAY_ACCESS|MAY_READ|MAY_OPEN|MAY_WRITE|MAY_EXEC);
 	sb->s_root=d_make_root(root_inode);
 	mountFolder=root_inode;
 	return 0;
 }
 static struct dentry *dfs_iop_lookup(struct inode *dir,struct dentry *query,unsigned int flags)
 {
-	printk(KERN_INFO" path to lookup %s",query->d_name.name);
 	struct list_head *temp;
 	struct dentry* tempDir;
 	int i=0;
-	if(!strcmp(query->d_name.name,"/") || !strcmp(query->d_name.name,".")){
-		printk(KERN_INFO"Main Folder lookup %s",query->d_name.name);
-                d_add(query,mountFolder);
+	if(strcmp(query->d_name.name,"Hello")){
+		printk(KERN_ERR" lookup for hello!");
 		return NULL;
-	}/*
-	for(i=0;i<count;i++){
-		if(!strcmp(names[i],query->d_name.name)){
+	}
+	for(i=0;i<dentries;i++){
+		if(!strcmp(dentry[i]->d_name.name,query->d_name.name)){
 			inode_init_owner(dir,inodes[i],flags);
 			d_add(query,inodes[i]);
 			break;
 		}
-	}*/
+	}
 	return NULL;
 }
 static int dfs_iop_mkdir(struct inode *ptrToParent,struct dentry *parent,umode_t mode){
 	return EOPNOTSUPP;
 }
 static int dfs_iop_create(struct inode *dir,struct dentry*childDentry,umode_t flags,bool iDontKnowThatSit){
-	if(count>12)return -EOPNOTSUPP;
-	printk(KERN_ERR"Creation of file %s  %d(%d left)",childDentry->d_name.name,count+1,(12-count+1));
+	if(dentries>12)return -EOPNOTSUPP;
+	printk(KERN_ERR"Creation of file %d(%d left)",dentries+1,(12-dentries+1));
 	struct inode *inode;							//to create a new inode file...
 	inode=new_inode(dir->i_sb);						//allocate a new inode with superblock same as current super block
 	inode->i_private=(void  *)kzalloc(sizeof(struct dfs_data),0);
@@ -160,10 +147,9 @@ static int dfs_iop_create(struct inode *dir,struct dentry*childDentry,umode_t fl
 	inode->i_fop=&dfs_fop;							//inode operations struct pass...
 	inode_init_owner(inode,dir,flags);					//initalize ownership
 	d_add(childDentry,inode);						//add inode to childDentry...
-	count+=1;								//add dentries +1
-
-	names[count]=childDentry->d_name.name;					//save fileName
-	inodes[count]=inode;							//save inode..
+	dentries+=1;								//add dentries +1
+	dentry[dentries]=childDentry;						//save dentry...
+	inodes[dentries]=inode;							//save inode..
 	return 0;								//everything fine...
 }
 char testString[] = "Hello world";
@@ -175,12 +161,5 @@ static ssize_t dfs_fop_read(struct file*file,char __user *buff,size_t size, loff
 	}
 	*loff+=size;
 	return size;
-
-}
-int  dfs_iop_getattr(struct vfsmount *mnt, struct dentry *curr, struct kstat *stat){
-	stat->ino=10;
-	stat->mode=(MAY_EXEC);
-	stat->size=210;
-	return 0;
 
 }

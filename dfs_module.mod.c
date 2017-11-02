@@ -19,9 +19,11 @@ __used
 __attribute__((section("__versions"))) = {
 	{ 0x7963ddf2, __VMLINUX_SYMBOL_STR(module_layout) },
 	{ 0x588308d, __VMLINUX_SYMBOL_STR(unregister_filesystem) },
-	{ 0x65763d61, __VMLINUX_SYMBOL_STR(kmem_cache_destroy) },
 	{ 0x5d2366a1, __VMLINUX_SYMBOL_STR(register_filesystem) },
-	{ 0x98abc498, __VMLINUX_SYMBOL_STR(kmem_cache_create) },
+	{ 0xb29391a8, __VMLINUX_SYMBOL_STR(kmem_cache_alloc_trace) },
+	{ 0xda4faf59, __VMLINUX_SYMBOL_STR(kmalloc_caches) },
+	{ 0xc671e369, __VMLINUX_SYMBOL_STR(_copy_to_user) },
+	{ 0x88db9f48, __VMLINUX_SYMBOL_STR(__check_object_size) },
 	{ 0x9c490ba0, __VMLINUX_SYMBOL_STR(d_make_root) },
 	{ 0xe8ef0ff0, __VMLINUX_SYMBOL_STR(current_kernel_time64) },
 	{ 0x5264a5c7, __VMLINUX_SYMBOL_STR(inode_init_owner) },

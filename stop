@@ -1,0 +1,6 @@
+sudo su 
+cd test 
+fuser -k mount
+umount mount 
+rmmod dfs_module
+
