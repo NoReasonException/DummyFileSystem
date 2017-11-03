@@ -1,6 +1,10 @@
 make
+echo "Make completed..."
 sudo insmod dfs_module.ko
+echo "insmod inserted"
 cd test
-sudo losetup /dev/loop0 img
-sudo mount -t dfs /dev/loop0 mount
+sudo losetup /dev/loop$1 img
+echo "loop device set..."
+sudo mount -t dfs /dev/loop$1 mount
+echo "mounted..."
 
