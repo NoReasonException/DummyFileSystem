@@ -63,7 +63,7 @@ static struct file_operations dfs_mount_dir_iop={
 */
 static struct file_operations dfs_fop={
 	.read=dfs_fop_read,
-	.write=NULL,		//write=NULL is default value, we use it as a reminder here(TODO)
+//	.write=NULL,		//write=NULL is default value, we use it as a reminder here(TODO)
 };
 /*
 	struct file_system_info , contains all the information ascociated with every instance of this filesystem...
@@ -206,12 +206,10 @@ static int dfs_iop_create(struct inode *dir,struct dentry*childDentry,umode_t fl
 char testString[] = "Hello world";
 static ssize_t dfs_fop_read(struct file*file,char __user *buff,size_t size, loff_t *loff){
 	if(size>12)size=12;
-	if(unlikely(copy_to_user(buff,testString,size))){
-		printk(KERN_ERR"Error copy user space buffer");
-		return 0;
-	}
+	copy_to_user(buff,testString,size);
+	printk(KERN_ERR"read()");
 	*loff+=size;
-	return size;
+	return 0;
 
 }
 int  dfs_iop_getattr(struct vfsmount *mnt, struct dentry *curr, struct kstat *stat){
