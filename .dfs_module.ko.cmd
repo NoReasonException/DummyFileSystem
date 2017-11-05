@@ -1,1 +1,0 @@
-cmd_/home/stefstef/Desktop/DFS/DummyFileSystem/dfs_module.ko := ld -r -m elf_x86_64 -T /usr/src/linux-headers-4.9.0-deepin9-common/scripts/module-common.lds --build-id  -o /home/stefstef/Desktop/DFS/DummyFileSystem/dfs_module.ko /home/stefstef/Desktop/DFS/DummyFileSystem/dfs_module.o /home/stefstef/Desktop/DFS/DummyFileSystem/dfs_module.mod.o ;  true
