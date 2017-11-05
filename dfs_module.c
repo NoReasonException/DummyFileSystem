@@ -9,15 +9,16 @@
 
 #define DFS_MAXBYTES 1024
 #define DFS_FIRSTINODE_INO 0
-static struct dentry *	dfs_construct(struct file_system_type *,int flags,const char *dev_name,void *data);	//Constructor Function passed in struct file_system_type
-static void 		dfs_destruct(struct super_block *sb);							//Destructor Fuction passed in struct file_system_type
-static int  		dfs_fill_super(struct super_block *sb,void *data,int silent);				//Fills the struct superblock of this filesystem (Passed in mount_bdev)
-static struct dentry *	dfs_iop_lookup(struct inode *,struct dentry *parent,unsigned int flagsMaybe);		//Converts a path name to struct inode
-static int 		dfs_iop_mkdir(struct inode *,struct dentry *parent,umode_t mode);			//Makes a directory (Not supported yet)
-static int 		dfs_iop_create(struct inode *,struct dentry* ,umode_t flags,bool);			//Creates a regular file
-static ssize_t 		dfs_fop_read(struct file*,char __user *,size_t , loff_t *);				//Read the contents of a file...
-static int 		dfs_iop_permission(struct inode *,int);							//return the permissions of the file (not supported)
-int 			dfs_iop_getattr(struct vfsmount *mnt, struct dentry *, struct kstat *);
+static struct dentry *	dfs_construct		(struct file_system_type *,int flags,const char *dev_name,void *data);	//Constructor Function passed in struct file_system_type
+static void 		dfs_destruct		(struct super_block *sb);						//Destructor Fuction passed in struct file_system_type
+static int  		dfs_fill_super		(struct super_block *sb,void *data,int silent);				//Fills the struct superblock of this filesystem (Passed in mount_bdev)
+static struct dentry *	dfs_iop_lookup		(struct inode *,struct dentry *parent,unsigned int flagsMaybe);		//Converts a path name to struct inode
+static int 		dfs_iop_mkdir		(struct inode *,struct dentry *parent,umode_t mode);			//Makes a directory (Not supported yet)
+static int 		dfs_iop_create		(struct inode *,struct dentry* ,umode_t flags,bool);			//Creates a regular file
+static ssize_t 		dfs_fop_read		(struct file*,char __user *,size_t , loff_t *);				//Read the contents of a file...
+static int 		dfs_iop_permission	(struct inode *,int);							//return the permissions of the file (not supported)
+static int 		dfs_iop_getattr		(struct vfsmount *mnt, struct dentry *, struct kstat *);
+static ssize_t 		dfs_fop_write		(struct file *, const char __user *, size_t, loff_t *);
 /// Mount folder Operations only...
 static int		dfs_mount_dir_iop_iterate(struct file *flip,struct dir_context *ctx);			//iterate the contents of mount folder only (Unstable yet)
 
@@ -36,7 +37,7 @@ char **		names;			//simple array with filenames to ascociate...
 struct inode *mountFolder=NULL;		//mount folder reference...
 
 struct dfs_data{			//dfs_file data (not supported yet)
-	char name[12];
+//	char name[12];
 	char data[500];
 };
 /*
@@ -48,7 +49,7 @@ static struct inode_operations dfs_iop={
 	.lookup=	dfs_iop_lookup,		//searches for a specific inode object , using a path , provived by a dentry parameter..
 	.mkdir=		dfs_iop_mkdir,		//creates a new directory (Not supported..)
 	.create=	dfs_iop_create,		//creates a new file
-	.getattr=	dfs_iop_getattr,	//get attributes for a file...
+//	.getattr=	dfs_iop_getattr,	//get attributes for a file...
 };
 /*
 	Mount Folder file_operations struct .
@@ -63,7 +64,7 @@ static struct file_operations dfs_mount_dir_iop={
 */
 static struct file_operations dfs_fop={
 	.read=dfs_fop_read,
-//	.write=NULL,		//write=NULL is default value, we use it as a reminder here(TODO)
+	.write=dfs_fop_write,
 };
 /*
 	struct file_system_info , contains all the information ascociated with every instance of this filesystem...
@@ -165,22 +166,25 @@ static int dfs_fill_super(struct super_block *sb,void *data,int silent){
 }
 static struct dentry *dfs_iop_lookup(struct inode *dir,struct dentry *query,unsigned int flags)
 {
-	printk(KERN_INFO" path to lookup %s",query->d_name.name);
+	printk(KERN_INFO"Path to lookup %s in %d inodes",query->d_name.name,count);
 	struct list_head *temp;
 	struct dentry* tempDir;
 	int i=0;
 	if(!strcmp(query->d_name.name,"/") || !strcmp(query->d_name.name,".")){
-		printk(KERN_INFO"Main Folder lookup %s",query->d_name.name);
+		printk(KERN_INFO"\tMain Folder lookup",query->d_name.name);
                 d_add(query,mountFolder);
 		return NULL;
-	}/*
+	}
 	for(i=0;i<count;i++){
+		printk(KERN_INFO" check inode %d",i);
 		if(!strcmp(names[i],query->d_name.name)){
+			printk(KERN_INFO"founded %s!",names[i]);
 			inode_init_owner(dir,inodes[i],flags);
 			d_add(query,inodes[i]);
 			break;
 		}
-	}*/
+	}
+	printk("\t%s not found!",query->d_name.name);
 	return NULL;
 }
 static int dfs_iop_mkdir(struct inode *ptrToParent,struct dentry *parent,umode_t mode){
@@ -188,6 +192,7 @@ static int dfs_iop_mkdir(struct inode *ptrToParent,struct dentry *parent,umode_t
 }
 static int dfs_iop_create(struct inode *dir,struct dentry*childDentry,umode_t flags,bool iDontKnowThatSit){
 	if(count>12)return -EOPNOTSUPP;
+	struct dfs_data *file_data = (struct dfs_data * )kzalloc(sizeof(struct dfs_data),0);
 	printk(KERN_ERR"Creation of file %s  %d(%d left)",childDentry->d_name.name,count+1,(12-count+1));
 	struct inode *inode;							//to create a new inode file...
 	inode=new_inode(dir->i_sb);						//allocate a new inode with superblock same as current super block
@@ -195,23 +200,61 @@ static int dfs_iop_create(struct inode *dir,struct dentry*childDentry,umode_t fl
 	inode->i_mode|=(MAY_ACCESS|MAY_READ|MAY_OPEN|MAY_WRITE|MAY_EXEC);	//inital permissions...
 	inode->i_op=&dfs_iop;
 	inode->i_fop=&dfs_fop;							//inode operations struct pass...
+	inode->i_size=0;
+	inode->i_private=(void *)file_data;					//private struct with characters...
 	inode_init_owner(inode,dir,flags);					//initalize ownership
 	d_add(childDentry,inode);						//add inode to childDentry...
 	count+=1;								//add dentries +1
-
 	names[count]=childDentry->d_name.name;					//save fileName
 	inodes[count]=inode;							//save inode..
 	return 0;								//everything fine...
 }
-char testString[] = "Hello world";
-static ssize_t dfs_fop_read(struct file*file,char __user *buff,size_t size, loff_t *loff){
-	if(size>12)size=12;
-	copy_to_user(buff,testString,size);
-	printk(KERN_ERR"read()");
-	*loff+=size;
-	return 0;
+static inline struct dfs_data *dfs_utill_get_file_data(struct file *file){
+	return (struct dfs_data *)file->f_path.dentry->d_inode->i_private;
+}
+static inline ssize_t dfs_utill_get_file_size(struct file *file){
+	return file->f_path.dentry->d_inode->i_size;
+}
+static inline void dfs_utill_update_file_loff(struct file *file,loff_t loff){
+	file->f_pos+=loff;
+	return;
+}
+static inline void dfs_utill_update_file_size(struct file *file,ssize_t write_operation_bytes){
+	file->f_path.dentry->d_inode->i_size+=write_operation_bytes;
+	return;
 
 }
+
+
+static ssize_t dfs_fop_read(struct file*file,char __user *buff,size_t size, loff_t *loff){
+	int file_size =			dfs_utill_get_file_size(file);
+	struct dfs_data *file_data =	dfs_utill_get_file_data(file);
+	if(size>file_size)size=file_size;
+	printk(KERN_INFO"reading %d bytes from %s",size,file->f_path.dentry->d_name.name);
+	if(unlikely(copy_to_user(buff,file_data,size))){
+		printk(KERN_ERR"\tError in reading from file %s",file->f_path.dentry->d_name.name);
+		return -EOPNOTSUPP;
+	}
+	printk(KERN_ERR"\tread() completed...");
+	*loff+=size;
+	dfs_utill_update_file_loff(file,size);
+	return 0;
+}
+static ssize_t dfs_fop_write(struct file *file, const char __user *buff, size_t size, loff_t *offset){
+//	if(size>500)return -EOPNOTSUPP;	//if you want to write more than 500 bytes , its not supported..
+	int file_size=		dfs_utill_get_file_size(file);
+	char * kern_buff;
+	copy_from_user(kern_buff,buff,size);
+	strcpy(dfs_utill_get_file_data(file)->data,kern_buff);
+	printk(KERN_INFO"Write on file %s (%d bytes) completed",file->f_path.dentry->d_name.name,size);
+	*offset+=size;
+	dfs_utill_update_file_size(file,size);
+	return 0;
+
+
+
+}
+/*
 int  dfs_iop_getattr(struct vfsmount *mnt, struct dentry *curr, struct kstat *stat){
 	printk(KERN_INFO"dfs_iop_getattr called [%s]",curr->d_name.name);
 	if(!strcmp(curr->d_name.name,"/")){
@@ -224,8 +267,8 @@ int  dfs_iop_getattr(struct vfsmount *mnt, struct dentry *curr, struct kstat *st
 	}
 	stat->ino=3;
 	stat->mode|=(MAY_READ);
-	stat->size=2;
+	stat->size=curr->;
 	stat->blocks=0;
 	return 0;
 
-}
+}*/
