@@ -146,6 +146,9 @@ static int dfs_mount_dir_iop_iterate(struct file *flip,struct dir_context *ctx){
 }
 /*
 	dfs_fill_super , to proper fill the superblock...
+	@param sb ,		the filesystems superblock
+	@param data , 		the mount options(AS ASCII null-terminated string)
+	@param silent 		TODO:Document this parameter , the purpose is undefined for me yet...
 */
 
 static int dfs_fill_super(struct super_block *sb,void *data,int silent){
@@ -164,33 +167,53 @@ static int dfs_fill_super(struct super_block *sb,void *data,int silent){
 	mountFolder=root_inode;							//save reference for future use...
 	return 0;
 }
+/**
+	dfs_iop_lookup -> searches a inode using a name (provided by dentry->d_name.name)
+	@param dir 	-> the parent directory inode
+	@param query 	-> the dentry we want to search ;
+	@param lookup	-> lookup flags
+*/
 static struct dentry *dfs_iop_lookup(struct inode *dir,struct dentry *query,unsigned int flags)
 {
-	printk(KERN_INFO"Path to lookup %s in %d inodes",query->d_name.name,count);
-	struct list_head *temp;
-	struct dentry* tempDir;
-	int i=0;
-	if(!strcmp(query->d_name.name,"/") || !strcmp(query->d_name.name,".")){
-		printk(KERN_INFO"\tMain Folder lookup",query->d_name.name);
-                d_add(query,mountFolder);
-		return NULL;
+	printk(KERN_INFO"Path to lookup %s in %d inodes",query->d_name.name,count);		//debug messages
+	struct list_head *temp;									//temponary list head..
+	struct dentry* tempDir;									//--
+	int i=0;										//iterator index
+	if(!strcmp(query->d_name.name,"/") || !strcmp(query->d_name.name,".")){			//if we search the mount folder...
+		printk(KERN_INFO"\tMain Folder lookup",query->d_name.name);			//...
+                d_add(query,mountFolder);							//add the mount folder into the inode..
+		return NULL;									//return..
 	}
 	for(i=0;i<count;i++){
-		printk(KERN_INFO" check inode %d",i);
+		printk(KERN_INFO" check inode %d",i);						//iterate in all names..
 		if(!strcmp(names[i],query->d_name.name)){
-			printk(KERN_INFO"founded %s!",names[i]);
-			inode_init_owner(dir,inodes[i],flags);
-			d_add(query,inodes[i]);
-			break;
+			printk(KERN_INFO"founded %s!",names[i]);				//if the i-th name exists...
+			inode_init_owner(dir,inodes[i],flags);					//then the i-th inode is the query we want...
+			d_add(query,inodes[i]);							//add the inode...
+			break;									//return...
 		}
 	}
 	printk("\t%s not found!",query->d_name.name);
 	return NULL;
 }
+/***
+	dfs_iop_mkdir -> create folder (not supported)
+	@param ptrToParent the inode to parent
+	@param parent the dentry to add the folder inode...
+	@param mode -> the initial permission...
+
+*/
 static int dfs_iop_mkdir(struct inode *ptrToParent,struct dentry *parent,umode_t mode){
 	return EOPNOTSUPP;
 }
-static int dfs_iop_create(struct inode *dir,struct dentry*childDentry,umode_t flags,bool iDontKnowThatSit){
+/***
+	create inode
+	@param dir-> the parent folder inode...
+	@param childDentry -> the dentry to add the new inode...
+	@param v TODO undocumented parameter
+
+*/
+static int dfs_iop_create(struct inode *dir,struct dentry*childDentry,umode_t flags,bool v){
 	if(count>12)return -EOPNOTSUPP;
 	struct dfs_data *file_data = (struct dfs_data * )kzalloc(sizeof(struct dfs_data),0);
 	printk(KERN_ERR"Creation of file %s  %d(%d left)",childDentry->d_name.name,count+1,(12-count+1));
@@ -209,47 +232,94 @@ static int dfs_iop_create(struct inode *dir,struct dentry*childDentry,umode_t fl
 	inodes[count]=inode;							//save inode..
 	return 0;								//everything fine...
 }
+/***
+	dfs_utill_get_file_data(struct file*file)
+	gets the private section of the inode pointed by file
+	@param file -> the file to return the data
+	@note : this function as all utillity functions do not check for invalid values -> in case of NULL parameter for example , core dump is generated...and reboot is needed
+*/
 static inline struct dfs_data *dfs_utill_get_file_data(struct file *file){
 	return (struct dfs_data *)file->f_path.dentry->d_inode->i_private;
 }
+/***
+	dfs_utill_get_file_size(struct file *file)
+	gets the size of the file pointed by @param file (in bytes)
+	@param file -> the file to point to
+	@see warning in dfs_file_data
+*/
 static inline ssize_t dfs_utill_get_file_size(struct file *file){
 	return file->f_path.dentry->d_inode->i_size;
 }
+/***
+	dfs_utill_update_file_loff(struct file *file , loff_t loff)
+	updates the current file pointer by loff bytes (long offset )
+	@param
+*/
 static inline void dfs_utill_update_file_loff(struct file *file,loff_t loff){
 	file->f_pos+=loff;
 	return;
 }
+/***
+	dfs_utill_update_file_size
+	updates the file size by adding the @param write_operation_bytes into bytes...
+	@note : negative values is allowed
+*/
 static inline void dfs_utill_update_file_size(struct file *file,ssize_t write_operation_bytes){
 	file->f_path.dentry->d_inode->i_size+=write_operation_bytes;
 	return;
 
 }
+/**
+	dfs_iop_read(struct file*file , char __user *buff ,size_t size,loff *loff)
+	if read() operation occurs in dfs file , then dfs_fop_read() called...
+	@param file -> the file to apply operation read()
+	@param buff -> the user_space buffer to send the data on..
+	@param size -> the operation size request...
+	@the parameter witch read() will return(the number of bytes)
 
-
+	returnn 0 in error , nonzero otherwise
+	gets the data from private section of the inode
+	if the end of file reached , then reads the remaining and loff<size
+	TODO:BUG: Starts always from beggining and not from file pointer.... FIXME
+	TODO:BUG  Starts always from beggining of the buffer ..
+	TODO:BUG: Lock the file so other users wait untill operation succeeds
+*/
+bool once = 0;
 static ssize_t dfs_fop_read(struct file*file,char __user *buff,size_t size, loff_t *loff){
-	int file_size =			dfs_utill_get_file_size(file);
-	struct dfs_data *file_data =	dfs_utill_get_file_data(file);
-	if(size>file_size)size=file_size;
-	printk(KERN_INFO"reading %d bytes from %s",size,file->f_path.dentry->d_name.name);
-	if(unlikely(copy_to_user(buff,file_data,size))){
-		printk(KERN_ERR"\tError in reading from file %s",file->f_path.dentry->d_name.name);
+	if(once)return -1;
+	else once=1;
+	int file_size =			dfs_utill_get_file_size(file);					//get fileSize
+	struct dfs_data *file_data =	dfs_utill_get_file_data(file);					//get inode private section
+	if(size>file_size)size=file_size;								//if we exceed the filesize , then fix the operation size
+	printk(KERN_INFO"reading %d bytes from %s",size,file->f_path.dentry->d_name.name);		//debug message...
+	if(unlikely(copy_to_user(buff,file_data->data,size))){						//copy to userspace ..
+		printk(KERN_ERR"\tError in reading from file %s",file->f_path.dentry->d_name.name);	//if error , then debug message and exit as (OPERATION NOT SUPPORTED (-OPNOTSUPP)
 		return -EOPNOTSUPP;
 	}
-	printk(KERN_ERR"\tread() completed...");
-	*loff+=size;
-	dfs_utill_update_file_loff(file,size);
-	return 0;
+	printk(KERN_ERR"\t read() completed...");							//operation completed message...
+	*loff+=size;											//update buffer pointer to new operation ...
+	dfs_utill_update_file_loff(file,size);								//update file pointer to new operation...
+	return file_size;										//return size(everything is okay!)
 }
+
+/***
+	dfs_fop_write(struct file*file,const char __user*buff,size_t size,loff_t *offset)
+	if write() operation occurs in dfs file , then dfs_fop_write function will called..
+	@param file -> the file to apply write()
+	@param buff -> the data to write to file...
+	@param size -> the file operation size in bytes...
+	@param offset-> the buffer offset
+*/
 static ssize_t dfs_fop_write(struct file *file, const char __user *buff, size_t size, loff_t *offset){
 //	if(size>500)return -EOPNOTSUPP;	//if you want to write more than 500 bytes , its not supported..
 	int file_size=		dfs_utill_get_file_size(file);
-	char * kern_buff;
+	char * kern_buff=(char *)kzalloc(size,0);
 	copy_from_user(kern_buff,buff,size);
 	strcpy(dfs_utill_get_file_data(file)->data,kern_buff);
 	printk(KERN_INFO"Write on file %s (%d bytes) completed",file->f_path.dentry->d_name.name,size);
 	*offset+=size;
 	dfs_utill_update_file_size(file,size);
-	return 0;
+	return size;
 
 
 

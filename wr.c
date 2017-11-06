@@ -7,11 +7,11 @@ int main(){
 	int i;
 	printf("give size -> ");
 	scanf("%d",&size);
-	char *str;
+	char str[size];
 	scanf("%s",str);
-	int fd=fopen("test/mount/e1","wr");
+	int fd=open("test/mount/e1","wr");
 	if(fd<0)printf("err in open\n");
-	if(write(fd,str,size)){
+	if(write(fd,str,size)!=size){
 		printf("write () fail\n");
 //		return 0;
 	}
